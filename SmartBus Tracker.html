@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SmartBus Tracker — Real-Time City Transit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg-0:#050a13; --bg-1:#0a1424; --bg-2:#0e1c33;
+  --glass:rgba(255,255,255,0.045); --glass-brd:rgba(148,197,255,0.14);
+  --cyan:#2dd4e8; --blue:#3b82f6; --text:#eaf2ff; --sub:#8ea3c2;
+  --green:#34d399; --amber:#fbbf24; --red:#f87171;
+  --font-display:'Space Grotesk',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --font-body:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:inherit; margin:0; padding:0;}
+html{scroll-behavior:smooth; scroll-padding-top:env(safe-area-inset-top,0px);}
+body{
+  font-family:var(--font-body); color:var(--text); background:var(--bg-0);
+  background-image:radial-gradient(ellipse 900px 600px at 15% -5%, rgba(59,130,246,0.20), transparent 60%),
+                    radial-gradient(ellipse 800px 500px at 100% 10%, rgba(45,212,232,0.14), transparent 60%),
+                    linear-gradient(180deg,var(--bg-0),var(--bg-1) 40%,var(--bg-0));
+  line-height:1.5; overflow-x:hidden;
+}
+img{max-width:100%;}
+a{color:inherit;}
+.wrap{max-width:1180px; margin:0 auto; padding:0 24px;}
+@media(prefers-reduced-motion:reduce){*{animation-duration:0.01ms !important; transition-duration:0.01ms !important;}}
+
+/* nav */
+nav{position:sticky; top:0; z-index:50; padding:env(safe-area-inset-top,0px) 0 0; backdrop-filter:blur(14px); background:rgba(5,10,19,0.55); border-bottom:1px solid var(--glass-brd);}
+.navbar{display:flex; align-items:center; justify-content:space-between; padding:16px 24px;}
+.logo{display:flex; align-items:center; gap:10px; font-family:var(--font-display); font-weight:700; font-size:1.15rem; letter-spacing:0.2px;}
+.logo-dot{width:10px; height:10px; border-radius:50%; background:var(--cyan); box-shadow:0 0 12px var(--cyan); flex:none;}
+.navlinks{display:flex; gap:28px; font-size:0.92rem; color:var(--sub);}
+.navlinks a:hover{color:var(--text);}
+@media(max-width:760px){.navlinks{display:none;}}
+
+/* hero */
+.hero{position:relative; padding:76px 0 40px; text-align:center; overflow:hidden;}
+.hero-map{position:absolute; inset:0; z-index:0; opacity:0.55; mask-image:linear-gradient(180deg,#000 55%,transparent 100%);}
+.hero h1{font-family:var(--font-display); font-weight:700; font-size:clamp(2.1rem,5.4vw,3.6rem); line-height:1.08; letter-spacing:-0.01em; position:relative; z-index:1;}
+.hero p{max-width:560px; margin:18px auto 0; color:var(--sub); font-size:1.08rem; position:relative; z-index:1;}
+.pulse-legend{display:flex; justify-content:center; gap:22px; margin-top:22px; font-size:0.82rem; color:var(--sub); position:relative; z-index:1; flex-wrap:wrap;}
+.pulse-legend span{display:flex; align-items:center; gap:7px;}
+.pulse-legend i{width:8px; height:8px; border-radius:50%; display:inline-block;}
+
+/* glass card base */
+.glass{background:var(--glass); border:1px solid var(--glass-brd); border-radius:18px; backdrop-filter:blur(16px); box-shadow:0 20px 50px -30px rgba(0,0,0,0.6);}
+
+/* search */
+.search-card{max-width:900px; margin:-10px auto 60px; padding:26px; position:relative; z-index:2;}
+.search-grid{display:grid; grid-template-columns:1fr 1fr auto; gap:14px; align-items:end;}
+@media(max-width:760px){.search-grid{grid-template-columns:1fr;}}
+.field label{display:block; font-size:0.78rem; color:var(--sub); margin-bottom:7px;}
+.field-input{display:flex; align-items:center; gap:9px; background:rgba(255,255,255,0.045); border:1px solid var(--glass-brd); border-radius:11px; padding:12px 14px;}
+.field-input input{background:transparent; border:0; outline:0; color:var(--text); font:inherit; width:100%;}
+.field-input input::placeholder{color:#5c7093;}
+.gps-btn{background:none; border:0; color:var(--cyan); cursor:pointer; font-size:0.78rem; white-space:nowrap;}
+.search-btn{background:linear-gradient(135deg,var(--blue),var(--cyan)); color:#04101d; font-weight:700; border:0; border-radius:11px; padding:13px 26px; cursor:pointer; font-size:0.95rem; transition:transform .15s ease, box-shadow .15s ease;}
+.search-btn:hover{transform:translateY(-1px); box-shadow:0 10px 24px -8px rgba(45,212,232,0.5);}
+.search-btn:focus-visible, button:focus-visible, input:focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+
+/* results */
+#results{max-width:1000px; margin:0 auto 70px; display:none;}
+#results.show{display:block; animation:reveal .5s ease both;}
+@keyframes reveal{from{opacity:0; transform:translateY(10px);} to{opacity:1; transform:none;}}
+.results-head{padding:20px 26px; display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:8px; border-bottom:1px solid var(--glass-brd);}
+.results-head h3{font-family:var(--font-display); font-size:1.15rem;}
+.results-head span{color:var(--sub); font-size:0.85rem;}
+.stat-row{display:grid; grid-template-columns:repeat(5,1fr); gap:0; padding:22px 10px;}
+@media(max-width:760px){.stat-row{grid-template-columns:repeat(2,1fr); row-gap:20px;}}
+.stat{text-align:center; padding:0 8px;}
+.stat b{display:block; font-family:var(--font-display); font-size:1.5rem; color:var(--cyan);}
+.stat span{font-size:0.78rem; color:var(--sub);}
+
+/* section shell */
+section.block{padding:60px 0;}
+.section-head{margin-bottom:30px; max-width:620px;}
+.section-head h2{font-family:var(--font-display); font-size:1.7rem; margin-bottom:8px;}
+.section-head p{color:var(--sub); font-size:0.98rem;}
+
+/* bus cards */
+.bus-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:16px;}
+.bus-card{padding:20px; position:relative; overflow:hidden;}
+.bus-card .bno{font-family:var(--font-display); font-weight:700; font-size:1.05rem;}
+.bus-name{color:var(--sub); font-size:0.82rem; margin-bottom:14px;}
+.bus-row{display:flex; justify-content:space-between; font-size:0.85rem; padding:5px 0; border-top:1px solid rgba(255,255,255,0.06);}
+.bus-row span:first-child{color:var(--sub);}
+.badge{display:inline-flex; align-items:center; gap:6px; font-size:0.78rem; padding:3px 10px; border-radius:20px; font-weight:600;}
+.badge.ontime{background:rgba(52,211,153,0.14); color:var(--green);}
+.badge.delay{background:rgba(248,113,113,0.14); color:var(--red);}
+.occ{font-weight:600;}
+.occ.Low{color:var(--green);} .occ.Medium{color:var(--amber);} .occ.High{color:var(--red);}
+
+/* map */
+.map-shell{position:relative; height:440px; overflow:hidden; padding:0;}
+.map-shell svg{width:100%; height:100%; display:block;}
+.bus-marker{cursor:pointer;}
+.bus-popup{position:absolute; min-width:190px; background:rgba(10,20,36,0.92); border:1px solid var(--glass-brd); border-radius:12px; padding:14px; font-size:0.82rem; backdrop-filter:blur(10px); display:none; z-index:5;}
+.bus-popup h4{font-family:var(--font-display); margin-bottom:8px;}
+.bus-popup .prow{display:flex; justify-content:space-between; padding:3px 0; color:var(--sub);}
+.bus-popup .prow b{color:var(--text); font-weight:600;}
+.map-hint{padding:10px 20px; font-size:0.78rem; color:var(--sub); border-top:1px solid var(--glass-brd);}
+
+/* timeline */
+.timeline{display:flex; flex-direction:column; gap:0;}
+.tl-item{display:flex; align-items:center; gap:16px; padding:14px 6px; border-bottom:1px solid rgba(255,255,255,0.06);}
+.tl-item:last-child{border-bottom:0;}
+.tl-dot{width:10px; height:10px; border-radius:50%; background:var(--cyan); flex:none; box-shadow:0 0 10px var(--cyan);}
+.tl-bus{font-family:var(--font-display); font-weight:600; width:64px; flex:none;}
+.tl-bar{flex:1; height:6px; border-radius:4px; background:rgba(255,255,255,0.07); overflow:hidden;}
+.tl-bar i{display:block; height:100%; background:linear-gradient(90deg,var(--blue),var(--cyan)); border-radius:4px;}
+.tl-time{width:90px; text-align:right; color:var(--sub); font-size:0.85rem; flex:none;}
+
+/* crowd */
+.crowd-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:16px;}
+.crowd-card{padding:18px;}
+.crowd-top{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;}
+.crowd-meter{height:8px; border-radius:5px; background:rgba(255,255,255,0.07); overflow:hidden;}
+.crowd-meter i{display:block; height:100%; border-radius:5px;}
+.crowd-tip{margin-top:12px; font-size:0.8rem; color:var(--sub);}
+.pill{font-size:0.76rem; padding:3px 10px; border-radius:20px; font-weight:600;}
+.pill.Low{background:rgba(52,211,153,0.14); color:var(--green);}
+.pill.Moderate{background:rgba(251,191,36,0.14); color:var(--amber);}
+.pill.High{background:rgba(248,113,113,0.14); color:var(--red);}
+
+/* notifications */
+.notify-list{display:flex; flex-direction:column; gap:0; padding:8px 0;}
+.notify-row{display:flex; justify-content:space-between; align-items:center; padding:16px 22px; border-bottom:1px solid rgba(255,255,255,0.06);}
+.notify-row:last-child{border-bottom:0;}
+.notify-row div b{display:block; font-size:0.95rem;}
+.notify-row div span{font-size:0.8rem; color:var(--sub);}
+.switch{position:relative; width:44px; height:24px; flex:none;}
+.switch input{opacity:0; width:100%; height:100%; margin:0; position:absolute; cursor:pointer;}
+.switch .track{position:absolute; inset:0; background:rgba(255,255,255,0.12); border-radius:20px; transition:background .2s;}
+.switch .thumb{position:absolute; top:3px; left:3px; width:18px; height:18px; border-radius:50%; background:#cdd8ea; transition:transform .2s, background .2s;}
+.switch input:checked + .track{background:linear-gradient(135deg,var(--blue),var(--cyan));}
+.switch input:checked + .track + .thumb{transform:translateX(20px); background:#04101d;}
+
+/* dashboard stats */
+.stats-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px;}
+.stat-card{padding:26px; text-align:center;}
+.stat-card b{display:block; font-family:var(--font-display); font-size:2.1rem; color:var(--cyan);}
+.stat-card span{color:var(--sub); font-size:0.85rem;}
+
+footer{padding:36px 0 calc(36px + env(safe-area-inset-bottom,0px)); text-align:center; color:var(--sub); font-size:0.82rem; border-top:1px solid var(--glass-brd);}
+
+/* chatbot */
+.chat-fab{position:fixed; bottom:calc(22px + env(safe-area-inset-bottom,0px)); right:22px; width:58px; height:58px; border-radius:50%; background:linear-gradient(135deg,var(--blue),var(--cyan)); border:0; cursor:pointer; z-index:60; box-shadow:0 12px 30px -8px rgba(45,212,232,0.6); font-size:1.4rem; display:flex; align-items:center; justify-content:center;}
+.chat-panel{position:fixed; bottom:calc(90px + env(safe-area-inset-bottom,0px)); right:22px; width:320px; max-width:calc(100vw - 32px); height:420px; max-height:70vh; z-index:60; display:none; flex-direction:column; overflow:hidden;}
+.chat-panel.open{display:flex;}
+.chat-head{padding:14px 18px; border-bottom:1px solid var(--glass-brd); font-family:var(--font-display); font-weight:600; display:flex; justify-content:space-between; align-items:center;}
+.chat-head button{background:none; border:0; color:var(--sub); cursor:pointer; font-size:1rem;}
+.chat-body{flex:1; overflow-y:auto; padding:14px 16px; display:flex; flex-direction:column; gap:10px;}
+.msg{max-width:85%; padding:9px 12px; border-radius:12px; font-size:0.85rem; line-height:1.4;}
+.msg.bot{background:rgba(255,255,255,0.06); align-self:flex-start; border-bottom-left-radius:3px;}
+.msg.user{background:linear-gradient(135deg,var(--blue),var(--cyan)); color:#04101d; align-self:flex-end; border-bottom-right-radius:3px; font-weight:500;}
+.chat-input{display:flex; border-top:1px solid var(--glass-brd);}
+.chat-input input{flex:1; background:transparent; border:0; padding:12px 14px; color:var(--text); font:inherit; outline:0;}
+.chat-input button{background:none; border:0; color:var(--cyan); padding:0 16px; cursor:pointer; font-weight:700;}
+.chat-suggest{display:flex; flex-wrap:wrap; gap:6px; padding:0 16px 10px;}
+.chat-suggest button{font-size:0.72rem; background:rgba(255,255,255,0.06); border:1px solid var(--glass-brd); color:var(--sub); border-radius:16px; padding:5px 10px; cursor:pointer;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="navbar wrap">
+    <div class="logo"><span class="logo-dot"></span>SmartBus Tracker</div>
+    <div class="navlinks">
+      <a href="#buses">Buses</a><a href="#map">Live Map</a><a href="#timeline">Arrivals</a><a href="#crowd">Crowding</a><a href="#stats">Network</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <svg class="hero-map" viewBox="0 0 1180 420" preserveAspectRatio="xMidYMid slice">
+    <defs><pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse"><path d="M60 0H0V60" fill="none" stroke="rgba(148,197,255,0.10)" stroke-width="1"/></pattern></defs>
+    <rect width="1180" height="420" fill="url(#grid)"/>
+    <path d="M0 300 H420 V150 H1180" fill="none" stroke="rgba(45,212,232,0.35)" stroke-width="3"/>
+    <path d="M180 0 V220 H900 V420" fill="none" stroke="rgba(59,130,246,0.30)" stroke-width="3"/>
+    <circle r="5" fill="#2dd4e8"><animateMotion dur="7s" repeatCount="indefinite" path="M0 300 H420 V150 H1180"/></circle>
+    <circle r="5" fill="#3b82f6"><animateMotion dur="9s" repeatCount="indefinite" path="M180 0 V220 H900 V420"/></circle>
+    <circle r="4" fill="#2dd4e8"><animateMotion dur="11s" begin="2s" repeatCount="indefinite" path="M0 300 H420 V150 H1180"/></circle>
+  </svg>
+  <div class="wrap">
+    <h1>Track your bus in real time</h1>
+    <p>Know where your bus is, when it will arrive, and choose the fastest route.</p>
+    <div class="pulse-legend">
+      <span><i style="background:var(--green)"></i>On time</span>
+      <span><i style="background:var(--amber)"></i>Moderate crowd</span>
+      <span><i style="background:var(--red)"></i>Delayed</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="search-card glass">
+    <div class="search-grid">
+      <div class="field">
+        <label for="fromInput">Current location</label>
+        <div class="field-input">
+          <input id="fromInput" type="text" placeholder="Majestic Bus Station" value="Majestic Bus Station">
+          <button class="gps-btn" id="gpsBtn" type="button">Use GPS</button>
+        </div>
+      </div>
+      <div class="field">
+        <label for="toInput">Destination</label>
+        <div class="field-input">
+          <input id="toInput" type="text" placeholder="Electronic City" value="Electronic City">
+        </div>
+      </div>
+      <button class="search-btn" id="searchBtn" type="button">Search route</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div id="results" class="glass">
+    <div class="results-head">
+      <h3 id="resTitle">Majestic Bus Station → Electronic City</h3>
+      <span>Fastest route found</span>
+    </div>
+    <div class="stat-row">
+      <div class="stat"><b>18.5 km</b><span>Distance</span></div>
+      <div class="stat"><b>42 min</b><span>Travel time</span></div>
+      <div class="stat"><b>12</b><span>Buses available</span></div>
+      <div class="stat"><b>0</b><span>Route changes</span></div>
+      <div class="stat"><b>₹35</b><span>Fare estimate</span></div>
+    </div>
+  </div>
+</div>
+
+<section class="block" id="buses">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Buses on this route</h2>
+      <p>Live positions and status for every bus currently serving Majestic → Electronic City.</p>
+    </div>
+    <div class="bus-grid" id="busGrid"></div>
+  </div>
+</section>
+
+<section class="block" id="map">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Live map</h2>
+      <p>Tap a bus marker to see its driver status, speed, and arrival estimate.</p>
+    </div>
+    <div class="glass map-shell">
+      <svg viewBox="0 0 900 420" id="mapSvg">
+        <defs><pattern id="grid2" width="50" height="50" patternUnits="userSpaceOnUse"><path d="M50 0H0V50" fill="none" stroke="rgba(148,197,255,0.08)" stroke-width="1"/></pattern></defs>
+        <rect width="900" height="420" fill="url(#grid2)"/>
+        <path id="roadA" d="M40 340 H340 V180 H860" fill="none" stroke="rgba(45,212,232,0.4)" stroke-width="5" stroke-linecap="round"/>
+        <path id="roadB" d="M150 20 V240 H700 V400" fill="none" stroke="rgba(59,130,246,0.35)" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="40" cy="340" r="5" fill="#5c7093"/><circle cx="860" cy="180" r="5" fill="#5c7093"/>
+      </svg>
+      <div class="bus-popup" id="busPopup"></div>
+    </div>
+    <div class="map-hint glass" style="border-radius:0 0 18px 18px; margin-top:-2px;">Markers move along live GPS-reported paths. Tap or click any marker for details.</div>
+  </div>
+</section>
+
+<section class="block" id="timeline">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Next arrivals</h2>
+      <p>Upcoming buses at Majestic Bus Station, in order of arrival.</p>
+    </div>
+    <div class="glass" style="padding:10px 22px;">
+      <div class="timeline" id="timelineList"></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="crowd">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Crowd prediction</h2>
+      <p>AI-estimated occupancy for the next buses, so you can pick a quieter ride.</p>
+    </div>
+    <div class="crowd-grid" id="crowdGrid"></div>
+  </div>
+</section>
+
+<section class="block">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>Alerts</h2>
+      <p>Choose what SmartBus Tracker should notify you about.</p>
+    </div>
+    <div class="glass notify-list">
+      <div class="notify-row"><div><b>Bus arriving soon</b><span>Notify me 3 minutes before arrival</span></div><label class="switch"><input type="checkbox" checked><span class="track"></span><span class="thumb"></span></label></div>
+      <div class="notify-row"><div><b>Route delays</b><span>Alert on schedule slippage over 5 minutes</span></div><label class="switch"><input type="checkbox" checked><span class="track"></span><span class="thumb"></span></label></div>
+      <div class="notify-row"><div><b>Traffic congestion</b><span>Warn if my route hits heavy traffic</span></div><label class="switch"><input type="checkbox"><span class="track"></span><span class="thumb"></span></label></div>
+      <div class="notify-row"><div><b>Bus cancellation</b><span>Immediate alert if a trip is cancelled</span></div><label class="switch"><input type="checkbox" checked><span class="track"></span><span class="thumb"></span></label></div>
+    </div>
+  </div>
+</section>
+
+<section class="block" id="stats">
+  <div class="wrap">
+    <div class="section-head">
+      <h2>The network right now</h2>
+      <p>Live figures across the whole city transit system.</p>
+    </div>
+    <div class="stats-grid">
+      <div class="glass stat-card"><b data-count="1284">0</b><span>Active buses</span></div>
+      <div class="glass stat-card"><b data-count="612000">0</b><span>Daily passengers</span></div>
+      <div class="glass stat-card"><b data-count="146">0</b><span>Routes covered</span></div>
+      <div class="glass stat-card"><b data-count="4" data-suffix=" min">0</b><span>Average delay</span></div>
+    </div>
+  </div>
+</section>
+
+<footer>© 2026 SmartBus Tracker · Live transit data for a smarter city</footer>
+
+<button class="chat-fab" id="chatFab" aria-label="Open assistant">💬</button>
+<div class="chat-panel glass" id="chatPanel">
+  <div class="chat-head">SmartBus Assistant <button id="chatClose">✕</button></div>
+  <div class="chat-body" id="chatBody">
+    <div class="msg bot">Hi! Ask me about routes, arrival times, or delays — try one of the suggestions below.</div>
+  </div>
+  <div class="chat-suggest">
+    <button data-q="Which bus goes to Electronic City?">Bus to Electronic City?</button>
+    <button data-q="When will Bus 45A arrive?">Bus 45A arrival?</button>
+    <button data-q="What is the fastest route?">Fastest route?</button>
+    <button data-q="Is my bus delayed?">Is my bus delayed?</button>
+  </div>
+  <form class="chat-input" id="chatForm"><input id="chatInput" placeholder="Ask about your bus..." autocomplete="off"><button type="submit">Send</button></form>
+</div>
+
+<script>
+const buses = [
+  {no:'KA-45A', name:'Majestic – Electronic City Express', from:'Silk Board', to:'Bommanahalli', eta:5, occ:'Medium', status:'On Time', speed:'34 km/h', road:'roadA'},
+  {no:'KA-36B', name:'Volvo AC Deluxe', from:'Madiwala', to:'BTM Layout', eta:9, occ:'Low', status:'On Time', speed:'29 km/h', road:'roadB'},
+  {no:'KA-78C', name:'City Express', from:'Koramangala', to:'Silk Board', eta:15, occ:'High', status:'Delayed', speed:'18 km/h', road:'roadA'},
+  {no:'KA-91D', name:'Vajra AC', from:'HSR Layout', to:'Agara', eta:18, occ:'Medium', status:'On Time', speed:'31 km/h', road:'roadB'},
+];
+
+function occColor(o){ return o==='Low' ? '#34d399' : o==='Medium' ? '#fbbf24' : '#f87171'; }
+function crowdLabel(o){ return o==='Low' ? 'Low' : o==='Medium' ? 'Moderate' : 'High'; }
+
+function renderBuses(){
+  document.getElementById('busGrid').innerHTML = buses.map(b=>`
+    <div class="glass bus-card">
+      <div class="bno">${b.no}</div>
+      <div class="bus-name">${b.name}</div>
+      <div class="bus-row"><span>Current location</span><span>${b.from}</span></div>
+      <div class="bus-row"><span>Next stop</span><span>${b.to}</span></div>
+      <div class="bus-row"><span>Arrival</span><span>${b.eta} min</span></div>
+      <div class="bus-row"><span>Occupancy</span><span class="occ ${b.occ}">${b.occ}</span></div>
+      <div class="bus-row" style="border-top:0; padding-top:10px;"><span class="badge ${b.status==='On Time'?'ontime':'delay'}">${b.status}</span></div>
+    </div>`).join('');
+}
+
+function renderTimeline(){
+  const max = Math.max(...buses.map(b=>b.eta));
+  document.getElementById('timelineList').innerHTML = [...buses].sort((a,b)=>a.eta-b.eta).map(b=>`
+    <div class="tl-item">
+      <span class="tl-dot"></span><span class="tl-bus">${b.no}</span>
+      <span class="tl-bar"><i style="width:${(b.eta/max*100).toFixed(0)}%"></i></span>
+      <span class="tl-time">${b.eta} min</span>
+    </div>`).join('');
+}
+
+function renderCrowd(){
+  document.getElementById('crowdGrid').innerHTML = buses.map(b=>{
+    const pct = b.occ==='Low'?30:b.occ==='Medium'?62:90;
+    const tip = b.occ==='High' ? `Consider ${buses.find(x=>x.occ==='Low')?.no || 'the next'} for a quieter ride.` : 'Comfortable seating likely available.';
+    return `<div class="glass crowd-card">
+      <div class="crowd-top"><b>${b.no}</b><span class="pill ${crowdLabel(b.occ)}">${crowdLabel(b.occ)} crowd</span></div>
+      <div class="crowd-meter"><i style="width:${pct}%; background:${occColor(b.occ)}"></i></div>
+      <div class="crowd-tip">${tip}</div>
+    </div>`;
+  }).join('');
+}
+
+renderBuses(); renderTimeline(); renderCrowd();
+
+// search
+document.getElementById('searchBtn').addEventListener('click', ()=>{
+  const from = document.getElementById('fromInput').value || 'Majestic Bus Station';
+  const to = document.getElementById('toInput').value || 'Electronic City';
+  document.getElementById('resTitle').textContent = `${from} → ${to}`;
+  const el = document.getElementById('results');
+  el.classList.add('show');
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+});
+document.getElementById('gpsBtn').addEventListener('click', ()=>{
+  document.getElementById('fromInput').value = 'Current location (detected)';
+});
+
+// map markers
+const svgNS = 'http://www.w3.org/2000/svg';
+const mapSvg = document.getElementById('mapSvg');
+const popup = document.getElementById('busPopup');
+buses.forEach((b,i)=>{
+  const c = document.createElementNS(svgNS,'circle');
+  c.setAttribute('r','7'); c.setAttribute('fill', i%2? '#3b82f6':'#2dd4e8');
+  c.setAttribute('stroke','#04101d'); c.setAttribute('stroke-width','2');
+  c.classList.add('bus-marker');
+  const anim = document.createElementNS(svgNS,'animateMotion');
+  anim.setAttribute('dur', (8+i*2)+'s'); anim.setAttribute('repeatCount','indefinite');
+  anim.setAttribute('path', document.getElementById(b.road).getAttribute('d'));
+  c.appendChild(anim);
+  c.addEventListener('click', (e)=>{
+    popup.style.display='block';
+    const rect = mapSvg.getBoundingClientRect();
+    const shellRect = mapSvg.parentElement.getBoundingClientRect();
+    let x = e.clientX - shellRect.left + 14, y = e.clientY - shellRect.top - 10;
+    x = Math.min(x, shellRect.width-210); y = Math.max(y,10);
+    popup.style.left = x+'px'; popup.style.top = y+'px';
+    popup.innerHTML = `<h4>${b.no}</h4>
+      <div class="prow"><span>Driver status</span><b>Active</b></div>
+      <div class="prow"><span>Current speed</span><b>${b.speed}</b></div>
+      <div class="prow"><span>Arrival</span><b>${b.eta} min</b></div>
+      <div class="prow"><span>Status</span><b>${b.status}</b></div>`;
+  });
+  mapSvg.appendChild(c);
+});
+document.addEventListener('click', (e)=>{ if(!e.target.closest('.bus-marker') && !e.target.closest('.bus-popup')) popup.style.display='none'; });
+
+// dashboard counters
+const counters = document.querySelectorAll('[data-count]');
+const io = new IntersectionObserver((entries)=>{
+  entries.forEach(entry=>{
+    if(entry.isIntersecting){
+      const el = entry.target, target = +el.dataset.count, suffix = el.dataset.suffix||'';
+      let cur = 0; const step = Math.max(1, Math.ceil(target/60));
+      const t = setInterval(()=>{ cur += step; if(cur>=target){cur=target; clearInterval(t);} el.textContent = cur.toLocaleString()+suffix; }, 20);
+      io.unobserve(el);
+    }
+  });
+}, {threshold:0.4});
+counters.forEach(c=>io.observe(c));
+
+// chatbot
+const chatFab = document.getElementById('chatFab'), chatPanel = document.getElementById('chatPanel'), chatBody = document.getElementById('chatBody');
+chatFab.addEventListener('click', ()=> chatPanel.classList.toggle('open'));
+document.getElementById('chatClose').addEventListener('click', ()=> chatPanel.classList.remove('open'));
+
+function addMsg(text, who){
+  const d = document.createElement('div'); d.className = 'msg '+who; d.textContent = text;
+  chatBody.appendChild(d); chatBody.scrollTop = chatBody.scrollHeight;
+}
+
+function botReply(q){
+  const t = q.toLowerCase();
+  if(t.includes('45a')) { const b = buses[0]; return `Bus ${b.no} is currently at ${b.from}, heading to ${b.to}. Estimated arrival: ${b.eta} minutes. Status: ${b.status}.`; }
+  if(t.includes('fastest')) return 'The fastest route from Majestic Bus Station to Electronic City is 18.5 km and takes about 42 minutes with no changes, on Bus 45A, 36B, 78C or 91D.';
+  if(t.includes('transfer') || t.includes('fewest')) return 'The Majestic → Electronic City route needs 0 changes — it is a direct trip on any of the 12 available buses.';
+  if(t.includes('delay')) { const d = buses.filter(b=>b.status==='Delayed'); return d.length ? `Yes — ${d.map(b=>b.no).join(', ')} ${d.length>1?'are':'is'} currently delayed.` : 'All buses on your route are currently on time.'; }
+  if(t.includes('electronic city') || t.includes('destination') || t.includes('which bus')) return 'Buses 45A, 36B, 78C and 91D all serve Electronic City directly from Majestic Bus Station.';
+  return "I can help with routes, arrival times, delays and transfers — try asking about a specific bus number or your destination.";
+}
+
+document.querySelectorAll('.chat-suggest button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ const q = btn.dataset.q; addMsg(q,'user'); setTimeout(()=>addMsg(botReply(q),'bot'), 350); });
+});
+document.getElementById('chatForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim(); if(!q) return;
+  addMsg(q,'user'); input.value='';
+  setTimeout(()=>addMsg(botReply(q),'bot'), 350);
+});
+</script>
+</body>
+</html>
